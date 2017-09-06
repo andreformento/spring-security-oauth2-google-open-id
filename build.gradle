@@ -1,0 +1,105 @@
+buildscript {
+	ext {
+		springBootVersion = '1.5.6.RELEASE'
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath('se.transmode.gradle:gradle-docker:1.2')
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'findbugs'
+apply plugin: 'jacoco'
+apply plugin: 'docker'
+
+jar {
+    baseName = 'security'
+//    version = '1.0.0-SNAPSHOT' //${project.version}
+}
+
+task buildDocker(type: Docker, dependsOn: build) {
+    push = false
+    applicationName = 'andreformento/' + jar.baseName
+    dockerfile = file('src/main/docker/Dockerfile')
+    doFirst {
+        copy {
+            from jar
+            into stageDir
+        }
+    }
+}
+
+// version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+    integrationTestCompile.extendsFrom testCompile
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-data-mongodb')
+	compile('org.springframework.boot:spring-boot-starter-data-rest')
+	compile('org.springframework.boot:spring-boot-starter-security')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.springframework.security.oauth:spring-security-oauth2')
+	compile('org.springframework.security:spring-security-jwt')
+	compile('com.google.guava:guava:23.0')
+
+
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+	testCompile('de.flapdoodle.embed:de.flapdoodle.embed.mongo')
+	testCompile('org.springframework.security:spring-security-test')
+
+    integrationTestCompile('net.javacrumbs.json-unit:json-unit-fluent:1.23.0')
+    integrationTestCompile('io.rest-assured:rest-assured:3.0.3')
+    integrationTestCompile('io.rest-assured:json-schema-validator:3.0.3')
+    integrationTestCompile('io.rest-assured:spring-mock-mvc:3.0.3')
+    integrationTestCompile('com.github.scribejava:scribejava-apis:2.5.3')
+}
+
+// how to remove warning on gradle
+// http://www.thinkcode.se/blog/2017/08/14/gradle-settestclassesdirfile-method-has-been-deprecated
+sourceSets {
+    integrationTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/integration-test/java')
+        }
+        resources.srcDir file('src/integration-test/resources')
+    }
+}
+
+task integrationTest(type: Test, dependsOn: cleanTest) {
+    testClassesDir = sourceSets.integrationTest.output.classesDir
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    // If you want just a single task to always run, you can set the outputs property inside of the task.
+    outputs.upToDateWhen { false }
+}
+
+tasks.withType(FindBugs) {
+    reports {
+        xml.enabled = false
+        html.enabled = true
+    }
+}
+
+integrationTest.mustRunAfter test
+jacocoTestReport.mustRunAfter integrationTest
+
+integrationTest.dependsOn test
+check.dependsOn integrationTest
+check.dependsOn jacocoTestReport

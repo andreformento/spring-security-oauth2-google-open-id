@@ -1,0 +1,11 @@
+server.port: 8082
+
+# security, oauth2
+google:
+  clientId: ${CLIENT_ID}
+  clientSecret: ${CLIENT_SECRET}
+  accessTokenUri: "https://www.googleapis.com/oauth2/v3/token"
+  userAuthorizationUri: "https://accounts.google.com/o/oauth2/auth"
+  loginUri: "/google-login"
+  redirectUri: "http://localhost:${server.port}${google.loginUri}"
+  socialServiceName: google
